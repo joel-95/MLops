@@ -23,10 +23,11 @@ def get_github_oauth_url() -> Dict[str, str]:
             detail="GITHUB_CLIENT_ID not configured in backend .env"
         )
 
-    # Scopes: read:user for profile, repo for repository management
     redirect_uri = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:3000")
-    scope = "read:user,repo"
-    url = f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&scope={scope}"
+    
+    # Note: GitHub Apps do NOT accept the legacy OAuth 'scope' parameter (it triggers a 404)
+    # Permissions are governed directly by the GitHub App configuration.
+    url = f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}"
 
     return {"url": url, "client_id": client_id}
 
