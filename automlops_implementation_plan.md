@@ -1629,50 +1629,50 @@ graph LR
 
 ### Integration Checklist
 
-| #  | Contract / Decision                                   | Owners           | Status   | Deadline |
-|----|-------------------------------------------------------|------------------|----------|----------|
-| 1  | `mlops.yaml` schema finalized (including `task_type`) | All              | ⬜ TODO  | Week 1   |
-| 2  | `metrics.json` schema finalized (classification + regression) | Aadi, All | ⬜ TODO  | Week 1   |
-| 3  | `predict.py` input/output contract finalized          | Aadi, Kevin, Joel| ⬜ TODO  | Week 1   |
-| 4  | `GET /status/{repo_id}` JSON shape agreed             | Sanjan ↔ Joel    | ⬜ TODO  | Week 1   |
-| 5  | Comparator call convention (direct import)            | Ebin ↔ Joel      | ⬜ TODO  | Week 1   |
-| 6  | `traffic_logger.py` placement decided                 | Joel ↔ Kevin     | ⬜ TODO  | Week 1   |
-| 7  | "Last deployed commit SHA" storage location           | Kevin ↔ Ebin     | ⬜ TODO  | Week 1   |
-| 8  | Deterministic port scheme agreed                      | Kevin, Sanjan    | ⬜ TODO  | Week 1   |
-| 9  | Circuit breaker parameters agreed                     | Joel, All        | ⬜ TODO  | Week 1   |
-| 10 | Discord webhook URL provisioned                       | Joel             | ⬜ TODO  | Week 1   |
+| #  | Contract / Decision                                   | Owners           | Status   | Implemented In                                  |
+|----|-------------------------------------------------------|------------------|----------|-------------------------------------------------|
+| 1  | `mlops.yaml` schema finalized (including `task_type`) | All              | ✅ DONE  | `demo_repo/mlops.yaml`, `backend/services/validator.py` |
+| 2  | `metrics.json` schema finalized (classification + regression) | Aadi, All | ✅ DONE  | `ml/train.py`, `ml/quality_gate.py`             |
+| 3  | `predict.py` input/output contract finalized          | Aadi, Kevin, Joel| ✅ DONE  | `ml/predict.py`, `demo_repo/ml/predict.py`       |
+| 4  | `GET /status/{repo_id}` JSON shape agreed             | Sanjan ↔ Joel    | ✅ DONE  | `backend/routes/status.py`, `frontend/src/components/StatusPage.jsx` |
+| 5  | Comparator call convention (direct import)            | Ebin ↔ Joel      | ✅ DONE  | `comparator/comparator.py`, `monitoring/monitor.py` |
+| 6  | `traffic_logger.py` placement decided                 | Joel ↔ Kevin     | ✅ DONE  | `monitoring/traffic_logger.py`, `docker/serving.Dockerfile` |
+| 7  | "Last deployed commit SHA" storage location           | Kevin ↔ Ebin     | ✅ DONE  | `backend/db/models.py` (`Deployment.deployed_commit_sha`) |
+| 8  | Deterministic port scheme agreed                      | Kevin, Sanjan    | ✅ DONE  | `deploy/local_deploy.py` (`8000 + sequential_id`) |
+| 9  | Circuit breaker parameters agreed                     | Joel, All        | ✅ DONE  | `monitoring/retrain_trigger.py` (`MAX_AUTO_RETRAINS_PER_24H = 3`) |
+| 10 | Discord webhook URL provisioned                       | Joel             | ✅ DONE  | `monitoring/alerts.py` (`DISCORD_WEBHOOK_URL`)   |
 
 ---
 
 ## 8. Phased Execution Timeline
 
-### Phase 1: Foundations (Week 1)
+### Phase 1: Foundations (Week 1) — ✅ COMPLETED
 
-> **Goal:** Every team member has a working stub of their core deliverable. All shared contracts are locked in. The pipeline can execute end-to-end with hardcoded/stubbed logic.
+> **Status:** All shared contracts locked in and fully implemented. The pipeline can execute end-to-end.
 
 | Day   | Kevin                        | Sanjan                       | Aadi                          | Ebin                          | Joel                          |
 |-------|------------------------------|------------------------------|-------------------------------|-------------------------------|-------------------------------|
-| Day 1 | `setup_runner.sh` draft      | `main.py` + CORS + routers  | `preprocess.py` function     | `mlflow_integration.py`      | `traffic_logger.py` (SQLite)  |
-| Day 2 | `app_config.py`              | `validator.py` (full schema)| `train.py` v1 (sklearn)      | MLflow server in compose      | `alerts.py` (Discord webhook) |
-| Day 3 | `runner.Dockerfile`          | `webhook.py` + HMAC verify  | `predict.py` contract        | `cloudflare_tunnel.py` (test)| `monitor.py` skeleton         |
-| Day 4 | `workflow_generator.py`      | `repos.py` CRUD endpoints   | `quality_gate.py` **STUB**   | Tunnel proven with hello-world| `retrain_trigger.py` + circuit breaker |
-| Day 5 | `docker-compose.yml`         | `models.py` + DB init       | `metrics.json` output        | —                             | **Integration test day**      |
-| Day 6 | `local_deploy.py` (det.port) | `status.py` (basic)         | `demo_repo/mlops.yaml`       | —                             | —                             |
-| Day 7 | **🔗 Integration:** Push → webhook → workflow → runner → stub gate → deploy → tunnel URL works end-to-end |
+| Day 1 | `setup_runner.sh` ✅         | `main.py` + CORS + routers ✅| `preprocess.py` function ✅   | `mlflow_integration.py` ✅    | `traffic_logger.py` (SQLite) ✅|
+| Day 2 | `app_config.py` ✅           | `validator.py` (full schema)✅| `train.py` v1 (sklearn) ✅   | MLflow server in compose ✅   | `alerts.py` (Discord webhook) ✅|
+| Day 3 | `runner.Dockerfile` ✅       | `webhook.py` + HMAC verify ✅| `predict.py` contract ✅      | `cloudflare_tunnel.py` ✅     | `monitor.py` orchestration ✅ |
+| Day 4 | `workflow_generator.py` ✅   | `repos.py` CRUD endpoints ✅ | `quality_gate.py` ✅          | Tunnel proven with ports ✅   | `retrain_trigger.py` + CB ✅  |
+| Day 5 | `docker-compose.yml` ✅      | `models.py` + DB init ✅     | `metrics.json` schema ✅      | Artifact logging ✅           | Unit & Integration tests ✅   |
+| Day 6 | `local_deploy.py` (det.port)✅| `status.py` (contract) ✅    | `demo_repo/mlops.yaml` ✅     | Model artifacts ✅            | React Frontend Scaffolding ✅ |
+| Day 7 | **🔗 Integration:** Push → webhook → workflow → runner → quality gate → deploy → tunnel URL works end-to-end ✅ |
 
-### Phase 2: Real Logic (Week 2)
+### Phase 2: Real Logic (Week 2) — ✅ COMPLETED
 
-> **Goal:** Replace all stubs with real implementations. Version comparison and monitoring produce actual outputs.
+> **Status:** Replaced stubs with full real implementations. Version comparison, anomaly detection, AST diff analysis, and React dashboard fully built.
 
 | Day    | Kevin                        | Sanjan                       | Aadi                          | Ebin                          | Joel                          |
 |--------|------------------------------|------------------------------|-------------------------------|-------------------------------|-------------------------------|
-| Day 8  | `serving.Dockerfile` polish  | Validation error messages    | `quality_gate.py` **REAL**   | `comparator.py` Evidently     | `monitor.py` scheduled loop   |
-| Day 9  | Runner GPU passthrough test  | Status endpoint complete     | Task-type-aware gate logic   | `production_drift.py`         | Drift → alert → retrain flow  |
-| Day 10 | —                            | —                            | Regression support in gate   | `train_v2.py`                 | Frontend: `Login.jsx`         |
-| Day 11 | —                            | —                            | —                            | `train_anomaly_model.py`      | Frontend: `ConnectRepo.jsx`   |
-| Day 12 | —                            | —                            | —                            | `score_anomaly.py`            | Frontend: `StatusPage.jsx`    |
-| Day 13 | —                            | —                            | —                            | `diff_analyzer.py` (AST)      | StatusPage Evidently embed    |
-| Day 14 | **🔗 Integration:** Full pipeline with real quality gate, Evidently reports, anomaly detection, change explainer |
+| Day 8  | `serving.Dockerfile` ✅      | Validation error messages ✅ | `quality_gate.py` (AND logic)✅| `comparator.py` Evidently ✅ | `monitor.py` scheduled loop ✅|
+| Day 9  | Runner GPU target verified ✅| Status endpoint complete ✅  | Task-type-aware gate logic ✅ | `production_drift.py` ✅       | Drift → alert → retrain flow ✅|
+| Day 10 | Container lifecycle hooks ✅ | ORM relationships + index ✅ | Regression support in gate ✅ | `train_v2.py` tuned variant ✅| Frontend: `Login.jsx` ✅      |
+| Day 11 | State recovery on startup ✅ | Unprocessable entity errors ✅| Reusable preprocessor bundle ✅| `train_anomaly_model.py` ✅  | Frontend: `ConnectRepo.jsx` ✅|
+| Day 12 | Deterministic port checks ✅ | HMAC security enforcement ✅ | Inference error handling ✅   | `score_anomaly.py` ✅          | Frontend: `StatusPage.jsx` ✅ |
+| Day 13 | Fallback deploy mechanisms ✅| Static report mounts ✅      | Standardized metrics.json ✅  | `diff_analyzer.py` (AST) ✅    | StatusPage Evidently embed ✅ |
+| Day 14 | **🔗 Integration:** Full pipeline with real quality gate, Evidently reports, anomaly detection, change explainer, and React UI ✅ |
 
 ### Phase 3: Polish & Demo Prep (Week 3)
 
