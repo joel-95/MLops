@@ -1,0 +1,28 @@
+# Environments
+.env
+.venv/
+env/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+build/
+npm-debug.log*
+
+# Database & Logs
+automlops.db
+*.log
+logs/
+test_traffic_logs/
+
+# Secrets
+*.pem
+*.key

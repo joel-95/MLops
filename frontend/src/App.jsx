@@ -16,6 +16,46 @@ export default function App() {
   const [repos, setRepos] = useState([]);
   const [loadingRepos, setLoadingRepos] = useState(false);
 
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState(null);
+
+  // Check URL query parameters for GitHub OAuth callback code
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+      setAuthLoading(true);
+      setAuthError(null);
+      // Clean query string from browser address bar
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      fetch(`${API_BASE}/auth/github/callback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'GitHub authentication failed');
+          }
+          return res.json();
+        })
+        .then((profile) => {
+          localStorage.setItem('automlops_user', JSON.stringify(profile));
+          setUser(profile);
+        })
+        .catch((err) => {
+          setAuthError(err.message);
+          localStorage.removeItem('automlops_user');
+          setUser(null);
+        })
+        .finally(() => {
+          setAuthLoading(false);
+        });
+    }
+  }, []);
+
   const fetchRepos = async () => {
     try {
       setLoadingRepos(true);
@@ -68,8 +108,21 @@ export default function App() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '6rem 2rem' }}>
+        <div style={{ color: 'var(--accent-cyan)', fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+          Authenticating with GitHub App...
+        </div>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          Exchanging authorization token &amp; fetching your verified GitHub profile
+        </p>
+      </div>
+    );
+  }
+
   if (!user) {
-    return <Login onLoginSuccess={(u) => setUser(u)} />;
+    return <Login onLoginSuccess={(u) => setUser(u)} authError={authError} />;
   }
 
   return (
@@ -100,9 +153,18 @@ export default function App() {
             + Connect Repo
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              👤 {user.username}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: '0.5rem' }}>
+            {user.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={user.username}
+                style={{ width: '32px', height: '32px', borderRadius: '50%', border: '1px solid var(--accent-cyan)' }}
+              />
+            ) : (
+              <span>👤</span>
+            )}
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+              {user.name || user.username}
             </span>
             <button
               className="btn btn-secondary"

@@ -1,10 +1,15 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env if present
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.routes import webhook, repos, status
+from backend.routes import webhook, repos, status, auth
 from backend.db.models import init_db
 from deploy.local_deploy import recover_deployments
 
@@ -29,6 +34,7 @@ app.add_middleware(
 )
 
 # 2. Register Routers
+app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(webhook.router, prefix="/webhook", tags=["Webhook"])
 app.include_router(repos.router, prefix="/repos", tags=["Repositories"])
 app.include_router(status.router, prefix="/status", tags=["Status Dashboard"])
@@ -44,7 +50,7 @@ async def on_startup():
     """Initializes SQLite tables and recovers running container deployments."""
     init_db()
     recover_deployments()
-    print("🚀 AutoMLOps Backend initialized and ready.")
+    print("[AutoMLOps] Backend initialized and ready.")
 
 
 @app.get("/health")
