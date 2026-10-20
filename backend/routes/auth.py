@@ -28,8 +28,9 @@ def get_github_oauth_url() -> Dict[str, str]:
     # Note: GitHub Apps do NOT accept the legacy OAuth 'scope' parameter (it triggers a 404)
     # Permissions are governed directly by the GitHub App configuration.
     url = f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}"
+    install_url = "https://github.com/apps/mlops-authentication/installations/new"
 
-    return {"url": url, "client_id": client_id}
+    return {"url": url, "client_id": client_id, "install_url": install_url}
 
 
 @router.post("/github/callback")
@@ -97,3 +98,42 @@ async def github_oauth_callback(payload: OAuthCallbackRequest) -> Dict[str, Any]
             "html_url": gh_user.get("html_url"),
             "token": access_token
         }
+
+
+@router.post("/token-login")
+async def token_login() -> Dict[str, Any]:
+    """
+    Authenticate directly using the verified GITHUB_TOKEN configured in .env.
+    Fetches real GitHub profile details dynamically.
+    """
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No GITHUB_TOKEN configured in backend .env"
+        )
+
+    async with httpx.AsyncClient() as client:
+        user_resp = await client.get(
+            "https://api.github.com/user",
+            headers={
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github+json"
+            },
+            timeout=10.0
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Configured GITHUB_TOKEN is invalid according to GitHub: {user_resp.text}"
+            )
+        gh_user = user_resp.json()
+        return {
+            "authenticated": True,
+            "username": gh_user.get("login"),
+            "name": gh_user.get("name") or gh_user.get("login"),
+            "avatar_url": gh_user.get("avatar_url"),
+            "html_url": gh_user.get("html_url"),
+            "token": token
+        }
+

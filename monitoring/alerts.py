@@ -70,7 +70,7 @@ def send_alert(
 
     if not webhook_url:
         logger.warning(f"[Discord Webhook Not Configured] {alert_title}: {message}")
-        print(f"🔔 [ALERT - {sev.upper()}] {alert_title}\n{message}\n")
+        print(f"[ALERT - {sev.upper()}] {alert_title}\n{message}\n".encode("ascii", "replace").decode("ascii"))
         return False
 
     try:

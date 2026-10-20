@@ -1,13 +1,11 @@
 import os
 import logging
-from typing import Dict
+from typing import Dict, Any
 
 logger = logging.getLogger("automlops.tunnel")
 
 # In-memory mapping of repo_id -> current port / tunnel URL
 _ACTIVE_TUNNELS: Dict[str, Dict[str, Any]] = {}
-
-Any = object
 
 
 def setup_tunnel(repo_id: str, local_port: int) -> str:

@@ -2,15 +2,17 @@ import os
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
-import mlflow
-from mlflow.tracking import MlflowClient
-
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 
 
-def get_client() -> MlflowClient:
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    return MlflowClient()
+def get_client():
+    try:
+        import mlflow
+        from mlflow.tracking import MlflowClient
+        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+        return MlflowClient()
+    except ImportError:
+        return None
 
 
 def log_run(
@@ -28,6 +30,7 @@ def log_run(
         The created MLflow run_id string.
     """
     try:
+        import mlflow
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
         experiment_name = f"automlops_{repo_id}"
         mlflow.set_experiment(experiment_name)

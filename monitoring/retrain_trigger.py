@@ -10,7 +10,7 @@ from github_app.app_config import dispatch_repository_event, generate_installati
 MAX_AUTO_RETRAINS_PER_24H = int(os.getenv("MAX_AUTO_RETRAINS_PER_24H", 3))
 
 
-def check_circuit_breaker(repo_id: str, db: Optional[Session] = None) -> Tuple_CB:
+def check_circuit_breaker(repo_id: str, db: Optional[Session] = None) -> tuple[bool, int]:
     """
     Checks if the repository has exceeded the 24-hour auto-retrain limit.
     Returns (is_allowed: bool, count_last_24h: int)
@@ -36,9 +36,6 @@ def check_circuit_breaker(repo_id: str, db: Optional[Session] = None) -> Tuple_C
     finally:
         if should_close:
             db.close()
-
-
-Tuple_CB = tuple[bool, int]
 
 
 def trigger_retrain(

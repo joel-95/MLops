@@ -1,7 +1,7 @@
 import os
 import pickle
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 import pandas as pd
 import numpy as np
 
@@ -18,9 +18,6 @@ def load_detector(model_path: str, scaler_path: str) -> Tuple[Optional[Any], Opt
         return model, scaler
     except Exception:
         return None, None
-
-
-Any = object
 
 
 def score_requests(

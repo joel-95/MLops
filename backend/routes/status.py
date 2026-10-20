@@ -67,9 +67,12 @@ def get_status(repo_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     }
 
     # 4. Reports & Change Explainer
+    v_html = monitoring_state.version_comparison_html if monitoring_state else None
+    d_html = monitoring_state.production_drift_html if monitoring_state else None
+
     reports_dict = {
-        "version_comparison_html": monitoring_state.version_comparison_html if monitoring_state else None,
-        "production_drift_html": monitoring_state.production_drift_html if monitoring_state else None,
+        "version_comparison_html": v_html.replace("\\", "/") if v_html else None,
+        "production_drift_html": d_html.replace("\\", "/") if d_html else None,
         "change_explainer": {
             "summary": (monitoring_state.change_explainer_summary if monitoring_state else None)
                        or "No version changes analyzed yet.",
