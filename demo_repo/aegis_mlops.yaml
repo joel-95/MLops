@@ -1,0 +1,75 @@
+project_name: "aegis-nids"
+# Pre-trained model — training is a no-op; the bridge loads existing Aegis artifacts.
+framework: "aegis_nids"
+task_type: "classification"
+entry_point: "ml/train.py"
+predict_module: "ml/predict.py"
+target_column: "label"
+
+# All 36 network-flow features the Aegis XGBoost model expects.
+# ja4_hash_enc and cipher_suite_enc should be pre-encoded integers
+# (pass 0 for unknown/rare — the model was trained to handle unseen hashes as 0).
+numerical_features:
+  - "packets_per_sec"
+  - "bytes_per_sec"
+  - "outbound_inbound_ratio"
+  - "orig_bytes"
+  - "resp_bytes"
+  - "orig_pkts"
+  - "resp_pkts"
+  - "fan_out"
+  - "fan_in"
+  - "unique_dst_ips"
+  - "unique_dst_ports"
+  - "iat_mean"
+  - "iat_std"
+  - "iat_min"
+  - "iat_max"
+  - "connection_frequency"
+  - "src_ip_entropy"
+  - "periodicity_score"
+  - "dns_query_entropy"
+  - "domain_length_mean"
+  - "domain_length_max"
+  - "subdomain_count"
+  - "dns_record_type_a_ratio"
+  - "dns_record_type_txt_ratio"
+  - "dns_query_count"
+  - "tls_version"
+  - "cipher_suite_enc"
+  - "is_tls"
+  - "ja4_hash_enc"
+  - "is_quic"
+  - "quic_0rtt"
+  - "quic_pkt_size_mean"
+  - "quic_pkt_size_std"
+  - "src_port"
+  - "dst_port"
+  - "duration"
+
+categorical_features: []
+
+metrics_threshold:
+  accuracy: 0.80
+  f1: 0.75
+
+dependencies: "requirements.txt"
+
+# Aegis NIDS specific settings
+aegis_nids:
+  # Path to Aegis project's ml/ directory.
+  # Overridable via AEGIS_ML_DIR environment variable.
+  model_dir: "../../Aegis/ml"
+  # Isolation Forest anomaly threshold (from iso_forest.joblib)
+  iso_threshold: 0.621
+  # XGBoost confidence below this → "unknown_anomaly"
+  confidence_threshold: 0.50
+  # 7 threat classes
+  classes:
+    - "benign"
+    - "c2_beaconing"
+    - "ddos"
+    - "dns_anomaly"
+    - "exfiltration"
+    - "malware_tls"
+    - "port_scan"

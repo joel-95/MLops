@@ -76,6 +76,9 @@ class PredictResponse(BaseModel):
     repo_id: str
     warning: Optional[str] = None
     error: Optional[str] = None
+    explanation: Optional[Dict[str, Any]] = None
+    anomaly_score: Optional[float] = None
+    is_anomaly: Optional[bool] = None
 
 
 # ─── Endpoints ─────────────────────────────────────────────────────────────────
@@ -113,31 +116,42 @@ def predict(request: PredictRequest):
         }
     else:
         try:
-            model = _MODEL_BUNDLE.get("model")
-            preprocessor = _MODEL_BUNDLE.get("preprocessor")
-
-            X_vec = preprocessor.transform_single(input_dict)
-            pred = model.predict(X_vec)[0]
-
-            # Convert numpy types to Python native
-            if hasattr(pred, "item"):
-                pred = pred.item()
-
-            confidence = None
-            if hasattr(model, "predict_proba"):
-                proba = model.predict_proba(X_vec)[0]
-                confidence = round(float(max(proba)), 4)
-
+            from ml.explainability import explain_prediction
+            expl = explain_prediction(_MODEL_BUNDLE, input_dict, top_n=3)
             output_dict = {
-                "prediction": pred,
-                "confidence": confidence
+                "prediction": expl.get("prediction"),
+                "confidence": expl.get("confidence"),
+                "explanation": {
+                    "method":       expl.get("method"),
+                    "top_features": expl.get("top_features", []),
+                    "evidence":     expl.get("evidence", []),
+                }
             }
+            if "error" in expl:
+                output_dict["error"] = expl["error"]
+            if "anomaly_score" in expl:
+                output_dict["anomaly_score"] = expl["anomaly_score"]
+                output_dict["is_anomaly"]    = expl.get("is_anomaly")
         except Exception as e:
-            output_dict = {
-                "prediction": None,
-                "confidence": 0.0,
-                "error": f"Inference error: {str(e)}"
-            }
+            # Fallback to plain inference if explainability fails
+            try:
+                model = _MODEL_BUNDLE.get("model")
+                preprocessor = _MODEL_BUNDLE.get("preprocessor")
+                X_vec = preprocessor.transform_single(input_dict)
+                pred = model.predict(X_vec)[0]
+                if hasattr(pred, "item"):
+                    pred = pred.item()
+                confidence = None
+                if hasattr(model, "predict_proba"):
+                    proba = model.predict_proba(X_vec)[0]
+                    confidence = round(float(max(proba)), 4)
+                output_dict = {"prediction": pred, "confidence": confidence}
+            except Exception as e2:
+                output_dict = {
+                    "prediction": None,
+                    "confidence": 0.0,
+                    "error": f"Inference error: {str(e2)}"
+                }
 
     # Log to traffic store for monitoring
     try:
@@ -151,7 +165,10 @@ def predict(request: PredictRequest):
         confidence=output_dict.get("confidence"),
         repo_id=REPO_ID,
         warning=output_dict.get("warning"),
-        error=output_dict.get("error")
+        error=output_dict.get("error"),
+        explanation=output_dict.get("explanation"),
+        anomaly_score=output_dict.get("anomaly_score"),
+        is_anomaly=output_dict.get("is_anomaly"),
     )
 
 

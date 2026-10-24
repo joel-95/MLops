@@ -63,7 +63,7 @@ def _node_to_value(node: ast.AST) -> Any:
     """Converts AST literal node to standard Python value."""
     if isinstance(node, ast.Constant):
         return node.value
-    elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USys or ast.UAdd):
+    elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
         val = _node_to_value(node.operand)
         return -val if isinstance(node.op, ast.USub) else val
     elif isinstance(node, ast.List):

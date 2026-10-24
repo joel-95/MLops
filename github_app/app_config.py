@@ -39,7 +39,7 @@ def verify_webhook_signature(payload: bytes, signature_header: Optional[str]) ->
         return False
 
     expected_hash = signature_header.split("sha256=")[1].strip()
-    computed_mac = hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+    computed_mac = hmac.new(secret.encode("utf-8"), payload, digestmod=hashlib.sha256).hexdigest()
 
     return hmac.compare_digest(computed_mac, expected_hash)
 

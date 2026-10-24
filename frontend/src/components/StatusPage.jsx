@@ -11,6 +11,7 @@ export default function StatusPage({ repoId, onBackToList }) {
   const [simulatingNormal, setSimulatingNormal] = useState(false);
   const [simulatingDrift, setSimulatingDrift] = useState(false);
   const [simResult, setSimResult] = useState(null);
+  const [runningMonitor, setRunningMonitor] = useState(false);
   const [activeReportTab, setActiveReportTab] = useState('summary'); // 'summary' | 'comparison' | 'drift'
 
   const fetchStatus = async () => {
@@ -70,6 +71,20 @@ export default function StatusPage({ repoId, onBackToList }) {
       alert(`Error starting pipeline: ${err.message}`);
     } finally {
       setPipelineRunning(false);
+    }
+  };
+
+  const handleRunMonitoring = async () => {
+    setRunningMonitor(true);
+    try {
+      const res = await fetch(`${API_BASE}/status/${repoId}/run-monitoring`, { method: 'POST' });
+      const result = await res.json();
+      alert(result.message || 'Monitoring cycle started.');
+      setTimeout(fetchStatus, 3000);
+    } catch (err) {
+      alert(`Monitoring error: ${err.message}`);
+    } finally {
+      setRunningMonitor(false);
     }
   };
 
@@ -200,6 +215,14 @@ export default function StatusPage({ repoId, onBackToList }) {
             disabled={pipelineRunning}
           >
             {pipelineRunning ? '⏳ Starting...' : '▶ Run Pipeline'}
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ borderColor: 'rgba(16,185,129,0.4)', color: '#34d399' }}
+            onClick={handleRunMonitoring}
+            disabled={runningMonitor}
+          >
+            {runningMonitor ? '🔍 Checking...' : '🔍 Run Monitoring'}
           </button>
           <button
             className="btn btn-primary"

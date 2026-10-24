@@ -53,7 +53,7 @@ jobs:
 
       - name: Execute Model Training
         run: |
-          echo "Starting training script: {entry_point}"
+          echo "Starting training script: {entry_point} (framework: {mlops_config.get('framework', 'sklearn')})"
           python {entry_point}
 
       - name: Run Quality Gate Check

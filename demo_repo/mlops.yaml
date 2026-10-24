@@ -1,5 +1,6 @@
 project_name: "iris-classifier-demo"
-framework: "sklearn"
+# framework options: "sklearn" (RandomForest v1/v2) | "xgboost" (XGBoost + Optuna)
+framework: "xgboost"
 task_type: "classification"
 entry_point: "ml/train.py"
 predict_module: "ml/predict.py"
@@ -13,5 +14,10 @@ categorical_features: []
 metrics_threshold:
   accuracy: 0.85
   precision: 0.80
+  f1: 0.80
 dependencies: "requirements.txt"
-dataset_path: "data/iris.csv"
+dataset_path: "demo_repo/data/iris.csv"
+
+# XGBoost-specific settings (only used when framework: xgboost)
+xgboost:
+  optuna_trials: 20

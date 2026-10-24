@@ -1,3 +1,4 @@
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
@@ -89,4 +90,28 @@ def get_status(repo_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
         "deployment": deployment_dict,
         "monitoring": monitoring_dict,
         "reports": reports_dict
+    }
+
+
+@router.post("/{repo_id}/run-monitoring")
+def run_monitoring_cycle(repo_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """
+    Manually triggers a monitoring cycle for a deployed repository in a background thread.
+    Checks for data drift and Isolation Forest anomaly rate; triggers retraining if thresholds exceeded.
+    """
+    repo = db.query(Repo).filter(Repo.id == repo_id).first()
+    if not repo:
+        raise HTTPException(status_code=404, detail=f"Repository '{repo_id}' not found")
+
+    def _run():
+        from monitoring.monitor import monitoring_cycle
+        monitoring_cycle(repo_id)
+
+    t = threading.Thread(target=_run, daemon=True, name=f"monitor-{repo_id}")
+    t.start()
+
+    return {
+        "status": "started",
+        "repo_id": repo_id,
+        "message": "Monitoring cycle launched in background. Refresh status in a few seconds to see results."
     }

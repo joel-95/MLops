@@ -49,7 +49,24 @@ def predict(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     preprocessor = MODEL_BUNDLE.get("preprocessor")
 
     try:
-        # Apply fitted preprocessing bundle
+        # Use SHAP-backed explainability for XGBoost; plain inference for everything else
+        framework = MODEL_BUNDLE.get("framework", "sklearn")
+        if framework == "xgboost":
+            from ml.explainability import explain_prediction
+            result = explain_prediction(MODEL_BUNDLE, input_dict, top_n=3)
+            if "error" in result:
+                return {"prediction": None, "confidence": 0.0, "error": result["error"]}
+            return {
+                "prediction": result["prediction"],
+                "confidence": result["confidence"],
+                "explanation": {
+                    "method":       result.get("method"),
+                    "top_features": result.get("top_features", []),
+                    "evidence":     result.get("evidence", []),
+                }
+            }
+
+        # Default sklearn path
         X_vec = preprocessor.transform_single(input_dict)
         pred = model.predict(X_vec)[0]
 

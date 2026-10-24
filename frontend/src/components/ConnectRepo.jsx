@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const DEFAULT_SAMPLE_YAML = `project_name: "iris-classifier-demo"
-framework: "sklearn"
+# framework options: "sklearn" (RandomForest) | "xgboost" (XGBoost + Optuna)
+framework: "xgboost"
 task_type: "classification"
 entry_point: "ml/train.py"
 predict_module: "ml/predict.py"
@@ -17,8 +18,13 @@ categorical_features: []
 metrics_threshold:
   accuracy: 0.85
   precision: 0.80
+  f1: 0.80
 dependencies: "requirements.txt"
-dataset_path: "data/iris.csv"`;
+dataset_path: "demo_repo/data/iris.csv"
+
+# XGBoost-specific settings (only used when framework: xgboost)
+xgboost:
+  optuna_trials: 20`;
 
 export default function ConnectRepo({ onRepoConnected, onCancel }) {
   const [repoUrl, setRepoUrl] = useState('https://github.com/joel-95/iris-classifier-demo');

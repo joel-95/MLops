@@ -1,7 +1,7 @@
 import yaml
 from typing import Tuple, List, Dict, Any, Optional
 
-VALID_FRAMEWORKS = {"sklearn", "pytorch", "tensorflow"}
+VALID_FRAMEWORKS = {"sklearn", "pytorch", "tensorflow", "xgboost", "aegis_nids"}
 VALID_TASK_TYPES = {"classification", "regression"}
 
 CLASSIFICATION_METRICS = {"accuracy", "precision", "recall", "f1", "loss"}
