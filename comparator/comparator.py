@@ -64,9 +64,14 @@ def run_version_comparison(
     }
 
     try:
-        from evidently.report import Report
-        from evidently.metric_preset import DataDriftPreset, ClassificationPreset, RegressionPreset
-        from evidently import ColumnMapping
+        try:
+            from evidently.report import Report
+            from evidently.metric_preset import DataDriftPreset, ClassificationPreset, RegressionPreset
+            from evidently import ColumnMapping
+        except ImportError:
+            from evidently.legacy.report import Report
+            from evidently.legacy.metric_preset import DataDriftPreset, ClassificationPreset, RegressionPreset
+            from evidently.legacy import ColumnMapping
 
         column_mapping = ColumnMapping(
             target=mlops_config.get("target_column"),

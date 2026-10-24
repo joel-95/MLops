@@ -1,5 +1,8 @@
+import os
 import json
 import logging
+import threading
+import pandas as pd
 from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException, Header, Depends
 from sqlalchemy.orm import Session
@@ -24,7 +27,8 @@ async def github_webhook(
 ):
     """
     Receives incoming GitHub webhooks (push, pull_request, etc.).
-    Verifies HMAC-SHA256 signature and triggers the training workflow.
+    Verifies HMAC-SHA256 signature and triggers the training workflow
+    by spawning the local runner in a background daemon thread.
     """
     payload_bytes = await request.body()
 
@@ -53,8 +57,9 @@ async def github_webhook(
             return {"status": "ignored", "reason": "Repository not connected to AutoMLOps"}
 
         # Record pending Run
+        run_id = f"run_{repo.id}_{commit_sha[:8]}_{int(datetime.utcnow().timestamp())}"
         run_record = Run(
-            id=f"run_{repo.id}_{commit_sha[:8]}_{int(datetime.utcnow().timestamp())}",
+            id=run_id,
             repo_id=repo.id,
             commit_sha=commit_sha,
             status="pending",
@@ -65,13 +70,21 @@ async def github_webhook(
         db.commit()
 
         send_alert(
-            f"🚀 Push detected on `{repo.repo_name}` (`{commit_sha[:7]}`). Training pipeline queued on self-hosted runner.",
+            f"🚀 Push detected on `{repo.repo_name}` (`{commit_sha[:7]}`). Training pipeline starting...",
             severity="info"
         )
 
+        # 2. Launch pipeline in background daemon thread
+        from runner.local_runner import launch_pipeline_thread
+        launched = launch_pipeline_thread(
+            repo_id=repo.id,
+            commit_sha=commit_sha,
+            run_id=run_id
+        )
+
         return {
-            "status": "queued",
-            "run_id": run_record.id,
+            "status": "queued" if launched else "duplicate_skipped",
+            "run_id": run_id,
             "commit_sha": commit_sha,
             "branch": ref
         }
@@ -85,8 +98,9 @@ async def pipeline_result_callback(
     db: Session = Depends(get_db)
 ):
     """
-    Callback endpoint invoked by GitHub Actions runner or local runner
+    Callback endpoint invoked by the local runner (or GitHub Actions runner)
     when training and quality gate finish.
+    On 'passed': deploys the model and triggers post-training monitoring.
     """
     repo_id = payload.get("repo_id")
     commit_sha = payload.get("commit_sha", "unknown")
@@ -122,20 +136,31 @@ async def pipeline_result_callback(
     db.commit()
 
     if status == "passed":
-        # 1. Quality gate passed -> Deploy model immediately
+        # 1. Quality gate passed → Deploy model immediately
         deploy_result = deploy_model(
             repo_id=repo.id,
             model_artifact_path=metrics.get("model_artifact_path", "artifacts/model.pkl"),
             commit_sha=commit_sha
         )
 
-        # 2. Trigger Version Comparison, AST Diff, and Async Anomaly Model Training
+        # 2. Load baseline data for anomaly model training
+        mlops_config = repo.mlops_yaml or {}
+        baseline_df = None
+        dataset_path = mlops_config.get("dataset_path", "demo_repo/data/iris.csv")
+        if os.path.exists(dataset_path):
+            try:
+                baseline_df = pd.read_csv(dataset_path)
+            except Exception as e:
+                logger.warning(f"Could not load baseline dataset from {dataset_path}: {e}")
+
+        # 3. Trigger Version Comparison, AST Diff, and Async Anomaly Model Training
         try:
             on_training_complete(
                 repo_id=repo.id,
                 metrics_path="metrics.json",
                 commit_sha=commit_sha,
-                mlops_config=repo.mlops_yaml
+                baseline_df=baseline_df,       # ← Passed so anomaly model trains async
+                mlops_config=mlops_config
             )
         except Exception as e:
             logger.error(f"Post-training monitoring error: {str(e)}")

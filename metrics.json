@@ -1,0 +1,11 @@
+{
+  "task_type": "classification",
+  "accuracy": 0.9667,
+  "precision": 0.9697,
+  "recall": 0.9667,
+  "f1": 0.9666,
+  "loss": 0.1689,
+  "training_time_sec": 0.22,
+  "commit_sha": "manual-1792819186",
+  "model_artifact_path": "artifacts\\model.pkl"
+}

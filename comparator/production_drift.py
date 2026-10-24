@@ -38,9 +38,14 @@ def check_production_drift(
     drifted_columns: List[str] = []
 
     try:
-        from evidently.report import Report
-        from evidently.metric_preset import DataDriftPreset
-        from evidently import ColumnMapping
+        try:
+            from evidently.report import Report
+            from evidently.metric_preset import DataDriftPreset
+            from evidently import ColumnMapping
+        except ImportError:
+            from evidently.legacy.report import Report
+            from evidently.legacy.metric_preset import DataDriftPreset
+            from evidently.legacy import ColumnMapping
 
         column_mapping = ColumnMapping(
             numerical_features=[f for f in numerical_features if f in all_features],
@@ -70,23 +75,30 @@ def check_production_drift(
 
     except Exception as e:
         # Statistical fallback using Kolmogorov-Smirnov test for numerical features
-        from scipy import stats
-        for col in numerical_features:
-            if col in baseline_df.columns and col in recent_live_df.columns:
-                try:
-                    b_vals = baseline_df[col].dropna()
-                    l_vals = recent_live_df[col].dropna()
-                    if len(b_vals) > 5 and len(l_vals) > 5:
-                        ks_stat, p_val = stats.ks_2samp(b_vals, l_vals)
-                        if p_val < 0.05:
-                            drifted_columns.append(col)
-                except Exception:
-                    pass
+        try:
+            from scipy import stats
+            for col in numerical_features:
+                if col in baseline_df.columns and col in recent_live_df.columns:
+                    try:
+                        b_vals = baseline_df[col].dropna()
+                        l_vals = recent_live_df[col].dropna()
+                        if len(b_vals) > 5 and len(l_vals) > 5:
+                            ks_stat, p_val = stats.ks_2samp(b_vals, l_vals)
+                            if p_val < 0.05:
+                                drifted_columns.append(col)
+                    except Exception:
+                        pass
 
-        drift_detected = len(drifted_columns) > (len(all_features) / 3)
-        summary = f"Statistical KS fallback applied ({len(drifted_columns)} drifted columns detected). Note: {str(e)}"
-        _write_drift_html(html_path, repo_id, drift_detected, drifted_columns, summary)
-        return drift_detected, drifted_columns, html_path
+            drift_detected = len(drifted_columns) > (len(all_features) / 3)
+            summary = f"Statistical KS fallback applied ({len(drifted_columns)} drifted columns detected). Note: {str(e)}"
+            _write_drift_html(html_path, repo_id, drift_detected, drifted_columns, summary)
+            return drift_detected, drifted_columns, html_path
+        except Exception as fallback_err:
+            try:
+                _write_drift_html(html_path, repo_id, False, [], f"Drift analysis skipped: {fallback_err}")
+            except Exception:
+                pass
+            return False, [], html_path
 
 
 def _write_drift_html(file_path: str, repo_id: str, drift: bool, drifted_cols: List[str], note: str):

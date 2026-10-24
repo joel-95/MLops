@@ -10,7 +10,8 @@ DEFAULT_LOGS_DIR = os.getenv("TRAFFIC_LOGS_DIR", "logs")
 
 
 def _get_db_path(repo_id: str) -> Path:
-    repo_dir = Path(DEFAULT_LOGS_DIR) / repo_id
+    logs_dir = os.getenv("TRAFFIC_LOGS_DIR", "logs")
+    repo_dir = Path(logs_dir) / repo_id
     repo_dir.mkdir(parents=True, exist_ok=True)
     return repo_dir / "traffic.db"
 

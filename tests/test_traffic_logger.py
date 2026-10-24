@@ -7,6 +7,8 @@ from monitoring.traffic_logger import log_prediction, get_recent_traffic, get_tr
 @pytest.fixture(autouse=True)
 def cleanup_traffic_logs():
     test_dir = "test_traffic_logs"
+    if os.path.exists(test_dir):
+        shutil.rmtree(test_dir, ignore_errors=True)
     os.environ["TRAFFIC_LOGS_DIR"] = test_dir
     yield
     if os.path.exists(test_dir):

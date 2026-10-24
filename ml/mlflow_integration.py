@@ -5,13 +5,40 @@ from typing import Dict, Any, Optional
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 
 
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "1")
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_TIMEOUT", "1")
+
+
+def _is_server_available(uri: str) -> bool:
+    """Fast check to see if an HTTP MLflow server is reachable within 0.5s."""
+    if not uri or not uri.startswith("http"):
+        return True
+    try:
+        import urllib.request
+        with urllib.request.urlopen(f"{uri.rstrip('/')}/health", timeout=0.5) as resp:
+            return resp.status < 400
+    except Exception:
+        return False
+
+
+def _write_fallback_run(repo_id: str, params: Dict[str, Any], metrics: Dict[str, Any], note: str = "") -> str:
+    local_mock_run_id = f"local_run_{repo_id}_{int(os.getpid())}"
+    fallback_dir = Path("artifacts") / repo_id / "mlflow_fallback"
+    fallback_dir.mkdir(parents=True, exist_ok=True)
+    with open(fallback_dir / f"{local_mock_run_id}.json", "w", encoding="utf-8") as f:
+        json.dump({"params": params, "metrics": metrics, "note": note}, f, indent=2)
+    return local_mock_run_id
+
+
 def get_client():
+    if MLFLOW_TRACKING_URI.startswith("http") and not _is_server_available(MLFLOW_TRACKING_URI):
+        return None
     try:
         import mlflow
         from mlflow.tracking import MlflowClient
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
         return MlflowClient()
-    except ImportError:
+    except Exception:
         return None
 
 
@@ -29,6 +56,9 @@ def log_run(
     Returns:
         The created MLflow run_id string.
     """
+    if MLFLOW_TRACKING_URI.startswith("http") and not _is_server_available(MLFLOW_TRACKING_URI):
+        return _write_fallback_run(repo_id, params, metrics, "MLflow tracking server offline")
+
     try:
         import mlflow
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -56,13 +86,7 @@ def log_run(
 
             return run_id
     except Exception as e:
-        # Graceful fallback for local development without active MLflow server
-        local_mock_run_id = f"local_run_{repo_id}_{int(os.getpid())}"
-        fallback_dir = Path("artifacts") / repo_id / "mlflow_fallback"
-        fallback_dir.mkdir(parents=True, exist_ok=True)
-        with open(fallback_dir / f"{local_mock_run_id}.json", "w", encoding="utf-8") as f:
-            json.dump({"params": params, "metrics": metrics, "error": str(e)}, f, indent=2)
-        return local_mock_run_id
+        return _write_fallback_run(repo_id, params, metrics, str(e))
 
 
 def get_previous_run(repo_id: str) -> Optional[Dict[str, Any]]:
@@ -72,6 +96,9 @@ def get_previous_run(repo_id: str) -> Optional[Dict[str, Any]]:
     """
     try:
         client = get_client()
+        if client is None:
+            return _get_fallback_run(repo_id)
+
         experiment = client.get_experiment_by_name(f"automlops_{repo_id}")
         if not experiment:
             return _get_fallback_run(repo_id)
@@ -90,19 +117,22 @@ def get_previous_run(repo_id: str) -> Optional[Dict[str, Any]]:
                     "metrics": run.data.metrics,
                     "start_time": run.info.start_time
                 }
-        return None
+        return _get_fallback_run(repo_id)
     except Exception:
         return _get_fallback_run(repo_id)
 
 
 def _get_fallback_run(repo_id: str) -> Optional[Dict[str, Any]]:
-    fallback_dir = Path("artifacts") / repo_id / "mlflow_fallback"
-    if not fallback_dir.exists():
-        return None
-    files = sorted(fallback_dir.glob("*.json"), key=os.path.getmtime, reverse=True)
-    if files:
-        with open(files[0], "r", encoding="utf-8") as f:
-            data = json.load(f)
-            data["run_id"] = files[0].stem
-            return data
+    try:
+        fallback_dir = Path("artifacts") / repo_id / "mlflow_fallback"
+        if not fallback_dir.exists():
+            return None
+        files = sorted(fallback_dir.glob("*.json"), key=os.path.getmtime, reverse=True)
+        if files:
+            with open(files[0], "r", encoding="utf-8") as f:
+                data = json.load(f)
+                data["run_id"] = files[0].stem
+                return data
+    except Exception:
+        pass
     return None

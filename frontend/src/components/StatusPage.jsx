@@ -7,6 +7,10 @@ export default function StatusPage({ repoId, onBackToList }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [retraining, setRetraining] = useState(false);
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [simulatingNormal, setSimulatingNormal] = useState(false);
+  const [simulatingDrift, setSimulatingDrift] = useState(false);
+  const [simResult, setSimResult] = useState(null);
   const [activeReportTab, setActiveReportTab] = useState('summary'); // 'summary' | 'comparison' | 'drift'
 
   const fetchStatus = async () => {
@@ -50,9 +54,50 @@ export default function StatusPage({ repoId, onBackToList }) {
     }
   };
 
+  const handleRunPipeline = async () => {
+    setPipelineRunning(true);
+    try {
+      const res = await fetch(`${API_BASE}/repos/${repoId}/run-pipeline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const result = await res.json();
+      alert(result.status === 'queued'
+        ? '▶️ Pipeline started! Training will begin in seconds. Status will auto-refresh.'
+        : `Pipeline status: ${result.message}`);
+      fetchStatus();
+    } catch (err) {
+      alert(`Error starting pipeline: ${err.message}`);
+    } finally {
+      setPipelineRunning(false);
+    }
+  };
+
+  const handleSimulateTraffic = async (mode) => {
+    const setter = mode === 'drifted' ? setSimulatingDrift : setSimulatingNormal;
+    setter(true);
+    setSimResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/repos/${repoId}/simulate-traffic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, n_samples: 150 })
+      });
+      const result = await res.json();
+      setSimResult(result);
+      setTimeout(() => setSimResult(null), 6000); // auto-clear after 6s
+      fetchStatus();
+    } catch (err) {
+      alert(`Traffic simulation error: ${err.message}`);
+    } finally {
+      setter(false);
+    }
+  };
+
   if (loading && !statusData) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem' }}>
+        <div className="loading-spinner" style={{ margin: '0 auto 1rem' }} />
         <div style={{ color: 'var(--accent-cyan)', fontSize: '1.2rem', marginBottom: '0.5rem' }}>
           Loading AutoMLOps Status Engine...
         </div>
@@ -76,7 +121,7 @@ export default function StatusPage({ repoId, onBackToList }) {
 
   return (
     <div>
-      {/* Circuit Breaker Trip Banner (Vulnerability Fix 4.1) */}
+      {/* Circuit Breaker Trip Banner */}
       {monitoring?.circuit_breaker_active && (
         <div className="circuit-breaker-banner">
           <div>
@@ -99,6 +144,32 @@ export default function StatusPage({ repoId, onBackToList }) {
         </div>
       )}
 
+      {/* Traffic Simulation Result Banner */}
+      {simResult && (
+        <div style={{
+          background: simResult.mode === 'drifted'
+            ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(185,28,28,0.15))'
+            : 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.15))',
+          border: `1px solid ${simResult.mode === 'drifted' ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'}`,
+          borderRadius: 'var(--radius-lg)',
+          padding: '1rem 1.5rem',
+          marginBottom: '1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <span style={{ fontSize: '1.5rem' }}>{simResult.mode === 'drifted' ? '⚠️' : '✅'}</span>
+          <div>
+            <div style={{ fontWeight: 600, color: '#f8fafc', marginBottom: '0.1rem' }}>
+              {simResult.message}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              Total traffic logged: {simResult.total_traffic_logged} requests
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Header Card */}
       <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
@@ -113,21 +184,29 @@ export default function StatusPage({ repoId, onBackToList }) {
           </div>
           <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             <span>ID: <code>{statusData.repo_id}</code></span>
-            <span>Assigned Port: <code>{deployment?.port || 'N/A'}</code></span>
+            <span>Port: <code>{deployment?.port || 'N/A'}</code></span>
             <a href={statusData.github_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)' }}>
               View on GitHub ↗
             </a>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-secondary" onClick={fetchStatus}>Refresh</button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={fetchStatus}>↻ Refresh</button>
+          <button
+            className="btn btn-secondary"
+            style={{ borderColor: 'rgba(56,189,248,0.4)', color: 'var(--accent-cyan)' }}
+            onClick={handleRunPipeline}
+            disabled={pipelineRunning}
+          >
+            {pipelineRunning ? '⏳ Starting...' : '▶ Run Pipeline'}
+          </button>
           <button
             className="btn btn-primary"
             onClick={handleManualRetrain}
             disabled={retraining}
           >
-            {retraining ? 'Retraining...' : 'Trigger Retrain'}
+            {retraining ? 'Retraining...' : '🔄 Trigger Retrain'}
           </button>
         </div>
       </div>
@@ -144,14 +223,14 @@ export default function StatusPage({ repoId, onBackToList }) {
           gap: '1rem'
         }}>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 600, textTransform: 'uppercase' }}>
-              Active Cloudflare Tunnel Serving Endpoint
+            <div style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+              🌐 Active Serving Endpoint
             </div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 600, fontFamily: 'JetBrains Mono', color: '#f8fafc' }}>
+            <div style={{ fontSize: '1.05rem', fontWeight: 600, fontFamily: 'JetBrains Mono', color: '#f8fafc' }}>
               {deployment.url}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Inference endpoint: <code>{deployment.url}/predict</code> • Commit: <code>{deployment.deployed_commit_sha?.substring(0, 7) || 'N/A'}</code>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+              Inference: <code>{deployment.url}/predict</code> • Commit: <code>{deployment.deployed_commit_sha?.substring(0, 7) || 'N/A'}</code>
             </div>
           </div>
           <a
@@ -161,7 +240,7 @@ export default function StatusPage({ repoId, onBackToList }) {
             className="btn btn-secondary"
             style={{ fontSize: '0.8rem' }}
           >
-            Check Health Endpoint ↗
+            Check Health ↗
           </a>
         </div>
       )}
@@ -172,10 +251,12 @@ export default function StatusPage({ repoId, onBackToList }) {
         <div className="metric-box">
           <div className="metric-label">Model Accuracy / R²</div>
           <div className="metric-value" style={{ color: 'var(--accent-cyan)' }}>
-            {metrics.accuracy !== undefined ? `${(metrics.accuracy * 100).toFixed(1)}%` : (metrics.r_squared !== undefined ? metrics.r_squared : 'N/A')}
+            {metrics.accuracy !== undefined
+              ? `${(metrics.accuracy * 100).toFixed(1)}%`
+              : (metrics.r_squared !== undefined ? metrics.r_squared : 'N/A')}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-            F1 Score: {metrics.f1 !== undefined ? metrics.f1 : 'N/A'} • Loss: {metrics.loss !== undefined ? metrics.loss : 'N/A'}
+            F1: {metrics.f1 !== undefined ? metrics.f1 : 'N/A'} • Loss: {metrics.loss !== undefined ? metrics.loss : 'N/A'}
           </div>
         </div>
 
@@ -183,12 +264,12 @@ export default function StatusPage({ repoId, onBackToList }) {
         <div className="metric-box">
           <div className="metric-label">Production Feature Drift</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-            <span className={`badge ${monitoring?.drift_detected ? 'badge-failed' : 'badge-healthy'}`} style={{ fontSize: '0.9rem' }}>
-              {monitoring?.drift_detected ? '⚠️ DRIFT DETECTED' : '✅ STABLE / IN-DISTRIBUTION'}
+            <span className={`badge ${monitoring?.drift_detected ? 'badge-failed' : 'badge-healthy'}`} style={{ fontSize: '0.85rem' }}>
+              {monitoring?.drift_detected ? '⚠️ DRIFT DETECTED' : '✅ STABLE'}
             </span>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.6rem' }}>
-            Drifted Columns: {monitoring?.drifted_columns?.length > 0 ? monitoring.drifted_columns.join(', ') : 'None'}
+            Drifted: {monitoring?.drifted_columns?.length > 0 ? monitoring.drifted_columns.join(', ') : 'None'}
           </div>
         </div>
 
@@ -199,16 +280,51 @@ export default function StatusPage({ repoId, onBackToList }) {
             {monitoring?.anomaly_rate !== undefined ? `${(monitoring.anomaly_rate * 100).toFixed(1)}%` : '0.0%'}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-            Threshold: {(monitoring?.anomaly_threshold * 100 || 15)}% • Retrains in 24h: {monitoring?.retrain_count_24h || 0}
+            Threshold: {(monitoring?.anomaly_threshold * 100 || 15)}% • Retrains 24h: {monitoring?.retrain_count_24h || 0}
           </div>
         </div>
       </div>
 
-      {/* Change Explainer Report (Section 6.4) */}
+      {/* Traffic Simulation Controls */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+              🧪 Traffic Simulation
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              Log synthetic prediction requests to test drift detection and monitoring cycles.
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary"
+            style={{ borderColor: 'rgba(16,185,129,0.4)', color: '#34d399', gap: '0.5rem' }}
+            onClick={() => handleSimulateTraffic('normal')}
+            disabled={simulatingNormal || simulatingDrift}
+          >
+            {simulatingNormal ? '⏳ Simulating...' : '🟢 Simulate Normal Traffic (150 samples)'}
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ borderColor: 'rgba(239,68,68,0.4)', color: '#f87171', gap: '0.5rem' }}
+            onClick={() => handleSimulateTraffic('drifted')}
+            disabled={simulatingNormal || simulatingDrift}
+          >
+            {simulatingDrift ? '⏳ Simulating...' : '🔴 Simulate Drifted Traffic (150 samples)'}
+          </button>
+        </div>
+        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
+          Drifted mode shifts <code>petal_length</code> to N(12.0, 1.5) — 3× off normal — to immediately trigger Evidently drift detection.
+        </div>
+      </div>
+
+      {/* Change Explainer Report */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>🔍</span> Change Explainer &amp; AST Diff Report
+            <span>🔍</span> Change Explainer & AST Diff Report
           </h3>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Deterministic AST Parser + Metric Deltas</span>
         </div>
@@ -237,7 +353,7 @@ export default function StatusPage({ repoId, onBackToList }) {
       {/* Evidently Reports Tab Section */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
               className={`btn ${activeReportTab === 'summary' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveReportTab('summary')}
@@ -269,11 +385,29 @@ export default function StatusPage({ repoId, onBackToList }) {
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               Send a test vector through the deployed serving model to verify predictions and logging:
             </p>
-            <pre style={{ background: '#090d16', padding: '1rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem' }}>
-              curl -X POST {deployment?.url || 'http://localhost:8001'}/predict \
-  -H "Content-Type: application/json" \
-  -d '{JSON.stringify({ sepal_length: 5.1, sepal_width: 3.5, petal_length: 1.4, petal_width: 0.2 }, null, 2)}'
+            <pre style={{ background: '#090d16', padding: '1rem', borderRadius: 'var(--radius-md)', fontSize: '0.82rem', overflowX: 'auto' }}>
+{`curl -X POST ${deployment?.url || 'http://localhost:8001'}/predict \\
+  -H "Content-Type: application/json" \\
+  -d '{"features": {"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}}'`}
             </pre>
+
+            <div style={{ marginTop: '1.25rem' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.6rem', color: 'var(--text-secondary)' }}>
+                Pipeline Metrics Summary
+              </h4>
+              <div className="grid-4">
+                {['accuracy', 'precision', 'recall', 'f1'].map(m => (
+                  metrics[m] !== undefined && (
+                    <div key={m} style={{ background: 'rgba(15,23,42,0.6)', borderRadius: 'var(--radius-md)', padding: '0.85rem', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{m}</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--accent-cyan)', fontFamily: 'JetBrains Mono' }}>
+                        {(metrics[m] * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  )
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
