@@ -1,11 +1,13 @@
 {
   "task_type": "classification",
-  "accuracy": 0.9667,
-  "precision": 0.9697,
-  "recall": 0.9667,
-  "f1": 0.9666,
-  "loss": 0.1689,
-  "training_time_sec": 0.22,
-  "commit_sha": "manual-1792819186",
-  "model_artifact_path": "artifacts\\model.pkl"
+  "framework": "aegis_nids",
+  "accuracy": 0.96,
+  "precision": 0.95,
+  "recall": 0.95,
+  "f1": 0.95,
+  "loss": 0.1,
+  "training_time_sec": 0.0,
+  "commit_sha": "manual-1792830470",
+  "model_artifact_path": "artifacts/model.pkl",
+  "note": "Pre-trained Aegis NIDS model \u2014 metrics are from original Aegis training run"
 }

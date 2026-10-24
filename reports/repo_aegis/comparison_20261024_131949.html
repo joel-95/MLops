@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AutoMLOps - Initial Baseline Deployment</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 2rem; background: #0f172a; color: #f8fafc; }
+        .card { background: #1e293b; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #334155; }
+        h1 { color: #38bdf8; font-size: 1.75rem; }
+        h2 { color: #94a3b8; font-size: 1.25rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
+        .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; }
+        .badge-green { background: #065f46; color: #34d399; }
+        .badge-red { background: #991b1b; color: #f87171; }
+        pre { background: #0f172a; padding: 1rem; border-radius: 6px; overflow-x: auto; color: #e2e8f0; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Initial Baseline Deployment</h1>
+        <p>Repository: <strong>repo_aegis</strong> | Generated: <strong>2026-10-24T13:19:49.086210Z</strong></p>
+        <p>Status: <span class="badge badge-green">Healthy / Pass</span></p>
+    </div>
+    <div class="card">
+        <h2>Summary</h2>
+        <p>Initial baseline deployment. No previous model version to compare against.</p>
+        <h2>Detailed Findings</h2>
+        <pre>{
+  "is_initial_deployment": true,
+  "dataset_drift": false,
+  "drift_share": 0.0,
+  "drifted_features": [],
+  "metric_deltas": {},
+  "current_metrics": {
+    "task_type": "classification",
+    "framework": "aegis_nids",
+    "accuracy": 0.96,
+    "precision": 0.95,
+    "recall": 0.95,
+    "f1": 0.95,
+    "loss": 0.1,
+    "training_time_sec": 0.0,
+    "commit_sha": "manual-1792828142",
+    "model_artifact_path": "artifacts/model.pkl",
+    "note": "Pre-trained Aegis NIDS model \u2014 metrics are from original Aegis training run"
+  },
+  "summary": "Initial baseline deployment. No previous model version to compare against."
+}</pre>
+    </div>
+</body>
+</html>
