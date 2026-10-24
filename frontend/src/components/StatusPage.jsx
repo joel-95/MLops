@@ -1,29 +1,62 @@
 import React, { useState, useEffect } from 'react';
+import { useToast, ToastStack } from './Toast.jsx';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+/* ── Inline SVG icons ────────────────────────────────────────────────────── */
+const IconRefresh = ({ spin }) => (
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" style={spin ? { animation:'spin 0.85s linear infinite' } : {}}>
+    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd"/>
+  </svg>
+);
+
+const IconPlay = () => (
+  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"/>
+  </svg>
+);
+
+const IconMonitor = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/>
+    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/>
+  </svg>
+);
+
+const IconRetrain = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.998.233-1.983.645-2.897A8.003 8.003 0 0010 4a8 8 0 00-3.62 15.146.997.997 0 00.645-1.892A6 6 0 0110 6a6.001 6.001 0 012.133 11.607c.243.632.802 1.108 1.485 1.269A8.003 8.003 0 0012 14z"/>
+  </svg>
+);
+
+const IconExternal = () => (
+  <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/>
+    <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
+  </svg>
+);
+
 export default function StatusPage({ repoId, onBackToList }) {
-  const [statusData, setStatusData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [retraining, setRetraining] = useState(false);
-  const [pipelineRunning, setPipelineRunning] = useState(false);
-  const [simulatingNormal, setSimulatingNormal] = useState(false);
-  const [simulatingDrift, setSimulatingDrift] = useState(false);
-  const [simResult, setSimResult] = useState(null);
+  const { toasts, push, dismiss } = useToast();
+
+  const [statusData,     setStatusData]     = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState(null);
+  const [retraining,     setRetraining]     = useState(false);
+  const [pipelineRunning,setPipelineRunning]= useState(false);
+  const [simulatingNormal,setSimNormal]     = useState(false);
+  const [simulatingDrift, setSimDrift]      = useState(false);
+  const [simResult,      setSimResult]      = useState(null);
   const [runningMonitor, setRunningMonitor] = useState(false);
-  const [activeReportTab, setActiveReportTab] = useState('summary'); // 'summary' | 'comparison' | 'drift'
+  const [activeReportTab,setActiveReportTab]= useState('summary');
 
   const fetchStatus = async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await fetch(`${API_BASE}/status/${repoId}`);
-      if (!res.ok) {
-        throw new Error(`Failed to load repository status (HTTP ${res.status})`);
-      }
-      const data = await res.json();
-      setStatusData(data);
+      if (!res.ok) throw new Error(`Failed to load repository status (HTTP ${res.status})`);
+      setStatusData(await res.json());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -33,7 +66,7 @@ export default function StatusPage({ repoId, onBackToList }) {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 10000); // 10s auto-refresh
+    const interval = setInterval(fetchStatus, 10000);
     return () => clearInterval(interval);
   }, [repoId]);
 
@@ -46,10 +79,15 @@ export default function StatusPage({ repoId, onBackToList }) {
         body: JSON.stringify({ reason: 'Dashboard manual operator trigger' })
       });
       const result = await res.json();
-      alert(result.triggered ? '🔄 Retraining pipeline dispatched!' : `Circuit Breaker: ${result.reason}`);
+      push(
+        result.triggered
+          ? 'Retraining pipeline dispatched successfully.'
+          : `Circuit breaker: ${result.reason}`,
+        result.triggered ? 'success' : 'warning'
+      );
       fetchStatus();
     } catch (err) {
-      alert(`Error triggering retrain: ${err.message}`);
+      push(`Error triggering retrain: ${err.message}`, 'error');
     } finally {
       setRetraining(false);
     }
@@ -63,12 +101,15 @@ export default function StatusPage({ repoId, onBackToList }) {
         headers: { 'Content-Type': 'application/json' }
       });
       const result = await res.json();
-      alert(result.status === 'queued'
-        ? '▶️ Pipeline started! Training will begin in seconds. Status will auto-refresh.'
-        : `Pipeline status: ${result.message}`);
+      push(
+        result.status === 'queued'
+          ? 'Pipeline started — training will begin shortly. Status auto-refreshes.'
+          : `Pipeline: ${result.message}`,
+        result.status === 'queued' ? 'success' : 'info'
+      );
       fetchStatus();
     } catch (err) {
-      alert(`Error starting pipeline: ${err.message}`);
+      push(`Error starting pipeline: ${err.message}`, 'error');
     } finally {
       setPipelineRunning(false);
     }
@@ -79,17 +120,17 @@ export default function StatusPage({ repoId, onBackToList }) {
     try {
       const res = await fetch(`${API_BASE}/status/${repoId}/run-monitoring`, { method: 'POST' });
       const result = await res.json();
-      alert(result.message || 'Monitoring cycle started.');
+      push(result.message || 'Monitoring cycle started.', 'info');
       setTimeout(fetchStatus, 3000);
     } catch (err) {
-      alert(`Monitoring error: ${err.message}`);
+      push(`Monitoring error: ${err.message}`, 'error');
     } finally {
       setRunningMonitor(false);
     }
   };
 
   const handleSimulateTraffic = async (mode) => {
-    const setter = mode === 'drifted' ? setSimulatingDrift : setSimulatingNormal;
+    const setter = mode === 'drifted' ? setSimDrift : setSimNormal;
     setter(true);
     setSimResult(null);
     try {
@@ -100,32 +141,31 @@ export default function StatusPage({ repoId, onBackToList }) {
       });
       const result = await res.json();
       setSimResult(result);
-      setTimeout(() => setSimResult(null), 6000); // auto-clear after 6s
+      setTimeout(() => setSimResult(null), 6000);
       fetchStatus();
     } catch (err) {
-      alert(`Traffic simulation error: ${err.message}`);
+      push(`Traffic simulation error: ${err.message}`, 'error');
     } finally {
       setter(false);
     }
   };
 
+  /* ── Loading / error states ─────────────────────────────────────────────── */
   if (loading && !statusData) {
     return (
-      <div style={{ textAlign: 'center', padding: '4rem' }}>
-        <div className="loading-spinner" style={{ margin: '0 auto 1rem' }} />
-        <div style={{ color: 'var(--accent-cyan)', fontSize: '1.2rem', marginBottom: '0.5rem' }}>
-          Loading AutoMLOps Status Engine...
-        </div>
-        <p style={{ color: 'var(--text-secondary)' }}>Polling health metrics and deployment metadata</p>
+      <div className="loading-state">
+        <div className="loading-spinner" />
+        <div className="loading-state-title">Loading repository status</div>
+        <div className="loading-state-sub">Polling health metrics and deployment metadata</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="card" style={{ maxWidth: '600px', margin: '2rem auto', textAlign: 'center' }}>
-        <h3 style={{ color: '#f87171', marginBottom: '1rem' }}>Connection Error</h3>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>{error}</p>
+      <div className="card" style={{ maxWidth:600, margin:'2rem auto', textAlign:'center' }}>
+        <h3 style={{ color:'var(--red)', marginBottom:'1rem' }}>Connection Error</h3>
+        <p style={{ color:'var(--text-2)', marginBottom:'1.5rem' }}>{error}</p>
         <button className="btn btn-secondary" onClick={fetchStatus}>Retry</button>
       </div>
     );
@@ -136,324 +176,281 @@ export default function StatusPage({ repoId, onBackToList }) {
 
   return (
     <div>
-      {/* Circuit Breaker Trip Banner */}
+      {/* ── Circuit breaker banner ─────────────────────────────────────────── */}
       {monitoring?.circuit_breaker_active && (
-        <div className="circuit-breaker-banner">
-          <div>
-            <h3 style={{ color: '#fecaca', fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.2rem' }}>
-              🚨 Retraining Circuit Breaker Engaged!
-            </h3>
-            <p style={{ color: '#fca5a5', fontSize: '0.85rem' }}>
-              Automated retraining halted. {monitoring.retrain_count_24h}/{monitoring.max_retrains_limit} auto-retrains triggered in the last 24h.
-              Potential fundamental data drift detected.
-            </p>
+        <div className="banner banner-error">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="banner-icon">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+          </svg>
+          <div className="banner-body">
+            <div className="banner-title">Retraining circuit breaker engaged</div>
+            <div className="banner-desc">
+              Auto-retraining halted. {monitoring.retrain_count_24h}/{monitoring.max_retrains_limit} retrains in the last 24 h — possible fundamental data drift.
+            </div>
           </div>
-          <button
-            className="btn btn-danger"
-            style={{ whiteSpace: 'nowrap' }}
-            onClick={handleManualRetrain}
-            disabled={retraining}
-          >
-            {retraining ? 'Dispatching...' : 'Override & Force Retrain'}
+          <button className="btn btn-danger btn-sm" onClick={handleManualRetrain} disabled={retraining}>
+            {retraining ? 'Dispatching…' : 'Force Retrain'}
           </button>
         </div>
       )}
 
-      {/* Traffic Simulation Result Banner */}
+      {/* ── Simulation result banner ───────────────────────────────────────── */}
       {simResult && (
-        <div style={{
-          background: simResult.mode === 'drifted'
-            ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(185,28,28,0.15))'
-            : 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.15))',
-          border: `1px solid ${simResult.mode === 'drifted' ? 'rgba(239,68,68,0.35)' : 'rgba(16,185,129,0.35)'}`,
-          borderRadius: 'var(--radius-lg)',
-          padding: '1rem 1.5rem',
-          marginBottom: '1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem'
-        }}>
-          <span style={{ fontSize: '1.5rem' }}>{simResult.mode === 'drifted' ? '⚠️' : '✅'}</span>
-          <div>
-            <div style={{ fontWeight: 600, color: '#f8fafc', marginBottom: '0.1rem' }}>
-              {simResult.message}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Total traffic logged: {simResult.total_traffic_logged} requests
-            </div>
+        <div className={`banner ${simResult.mode === 'drifted' ? 'banner-warning' : 'banner-success'}`}>
+          <svg viewBox="0 0 20 20" fill="currentColor" className="banner-icon">
+            {simResult.mode === 'drifted'
+              ? <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+              : <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+            }
+          </svg>
+          <div className="banner-body">
+            <div className="banner-title">{simResult.message}</div>
+            <div className="banner-desc">Total traffic logged: {simResult.total_traffic_logged} requests</div>
           </div>
         </div>
       )}
 
-      {/* Top Header Card */}
-      <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.4rem' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{statusData.repo_name}</h1>
-            <span className={`badge badge-${latest_run?.status || 'pending'}`}>
-              Pipeline: {latest_run?.status || 'idle'}
-            </span>
-            <span className={`badge badge-${deployment?.status || 'inactive'}`}>
-              Deploy: {deployment?.status || 'inactive'}
-            </span>
+      {/* ── Repo header card ───────────────────────────────────────────────── */}
+      <div className="card">
+        <div className="repo-header">
+          <div>
+            <div className="repo-title-row">
+              <h1 className="repo-title">{statusData.repo_name}</h1>
+              <span className={`badge badge-${latest_run?.status || 'pending'}`}>
+                Pipeline: {latest_run?.status || 'idle'}
+              </span>
+              <span className={`badge badge-${deployment?.status || 'inactive'}`}>
+                Deploy: {deployment?.status || 'inactive'}
+              </span>
+            </div>
+            <div className="repo-meta">
+              <span>ID: <code style={{ fontFamily:'JetBrains Mono', fontSize:'0.8rem' }}>{statusData.repo_id}</code></span>
+              <span>Port: <code style={{ fontFamily:'JetBrains Mono', fontSize:'0.8rem' }}>{deployment?.port || 'N/A'}</code></span>
+              <a href={statusData.github_url} target="_blank" rel="noreferrer">
+                View on GitHub <IconExternal />
+              </a>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            <span>ID: <code>{statusData.repo_id}</code></span>
-            <span>Port: <code>{deployment?.port || 'N/A'}</code></span>
-            <a href={statusData.github_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)' }}>
-              View on GitHub ↗
-            </a>
-          </div>
-        </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={fetchStatus}>↻ Refresh</button>
-          <button
-            className="btn btn-secondary"
-            style={{ borderColor: 'rgba(56,189,248,0.4)', color: 'var(--accent-cyan)' }}
-            onClick={handleRunPipeline}
-            disabled={pipelineRunning}
-          >
-            {pipelineRunning ? '⏳ Starting...' : '▶ Run Pipeline'}
-          </button>
-          <button
-            className="btn btn-secondary"
-            style={{ borderColor: 'rgba(16,185,129,0.4)', color: '#34d399' }}
-            onClick={handleRunMonitoring}
-            disabled={runningMonitor}
-          >
-            {runningMonitor ? '🔍 Checking...' : '🔍 Run Monitoring'}
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={handleManualRetrain}
-            disabled={retraining}
-          >
-            {retraining ? 'Retraining...' : '🔄 Trigger Retrain'}
-          </button>
+          <div className="action-group">
+            <button className="btn btn-secondary btn-sm" onClick={fetchStatus} title="Refresh">
+              <IconRefresh spin={loading} />
+              Refresh
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ borderColor:'rgba(56,189,248,0.35)', color:'var(--cyan)' }}
+              onClick={handleRunPipeline}
+              disabled={pipelineRunning}
+            >
+              <IconPlay />
+              {pipelineRunning ? 'Starting…' : 'Run Pipeline'}
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ borderColor:'rgba(16,185,129,0.35)', color:'var(--green)' }}
+              onClick={handleRunMonitoring}
+              disabled={runningMonitor}
+            >
+              <IconMonitor />
+              {runningMonitor ? 'Checking…' : 'Run Monitoring'}
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={handleManualRetrain} disabled={retraining}>
+              <IconRetrain />
+              {retraining ? 'Retraining…' : 'Retrain'}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Deployment & Live Gateway Banner */}
+      {/* ── Active endpoint banner ─────────────────────────────────────────── */}
       {deployment?.url && (
-        <div className="card" style={{
-          background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(59, 130, 246, 0.05))',
-          borderColor: 'var(--border-highlight)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '1rem'
-        }}>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--accent-cyan)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.3rem' }}>
-              🌐 Active Serving Endpoint
+        <div className="card endpoint-banner">
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'1rem', flexWrap:'wrap' }}>
+            <div>
+              <div className="endpoint-label">Active Serving Endpoint</div>
+              <div className="endpoint-url">{deployment.url}</div>
+              <div className="endpoint-meta">
+                Inference: <code>{deployment.url}/predict</code> · Commit: <code>{deployment.deployed_commit_sha?.substring(0,7) || 'N/A'}</code>
+              </div>
             </div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 600, fontFamily: 'JetBrains Mono', color: '#f8fafc' }}>
-              {deployment.url}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-              Inference: <code>{deployment.url}/predict</code> • Commit: <code>{deployment.deployed_commit_sha?.substring(0, 7) || 'N/A'}</code>
-            </div>
+            <a href={`${deployment.url}/health`} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
+              Check Health <IconExternal />
+            </a>
           </div>
-          <a
-            href={`${deployment.url}/health`}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-secondary"
-            style={{ fontSize: '0.8rem' }}
-          >
-            Check Health ↗
-          </a>
         </div>
       )}
 
-      {/* Grid: Metrics, Monitoring, Quality Gate */}
-      <div className="grid-3" style={{ marginBottom: '1.5rem' }}>
-        {/* Model Metrics */}
+      {/* ── Metric summary row ─────────────────────────────────────────────── */}
+      <div className="grid-3" style={{ marginBottom:'1.25rem' }}>
         <div className="metric-box">
           <div className="metric-label">Model Accuracy / R²</div>
-          <div className="metric-value" style={{ color: 'var(--accent-cyan)' }}>
+          <div className="metric-value" style={{ color:'var(--cyan)' }}>
             {metrics.accuracy !== undefined
               ? `${(metrics.accuracy * 100).toFixed(1)}%`
               : (metrics.r_squared !== undefined ? metrics.r_squared : 'N/A')}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-            F1: {metrics.f1 !== undefined ? metrics.f1 : 'N/A'} • Loss: {metrics.loss !== undefined ? metrics.loss : 'N/A'}
+          <div className="metric-sub">
+            F1: {metrics.f1 !== undefined ? metrics.f1 : 'N/A'} · Loss: {metrics.loss !== undefined ? metrics.loss : 'N/A'}
           </div>
         </div>
 
-        {/* Data Drift Indicator */}
         <div className="metric-box">
           <div className="metric-label">Production Feature Drift</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-            <span className={`badge ${monitoring?.drift_detected ? 'badge-failed' : 'badge-healthy'}`} style={{ fontSize: '0.85rem' }}>
-              {monitoring?.drift_detected ? '⚠️ DRIFT DETECTED' : '✅ STABLE'}
+          <div style={{ marginTop:'0.25rem' }}>
+            <span className={`badge ${monitoring?.drift_detected ? 'badge-failed' : 'badge-healthy'}`}
+              style={{ fontSize:'0.8rem' }}>
+              {monitoring?.drift_detected ? 'Drift Detected' : 'Stable'}
             </span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.6rem' }}>
-            Drifted: {monitoring?.drifted_columns?.length > 0 ? monitoring.drifted_columns.join(', ') : 'None'}
+          <div className="metric-sub">
+            Affected: {monitoring?.drifted_columns?.length > 0 ? monitoring.drifted_columns.join(', ') : 'None'}
           </div>
         </div>
 
-        {/* Isolation Forest Anomaly Rate */}
         <div className="metric-box">
-          <div className="metric-label">Isolation Forest Anomaly Rate</div>
-          <div className="metric-value" style={{ color: (monitoring?.anomaly_rate > 0.15) ? 'var(--accent-red)' : 'var(--accent-green)' }}>
+          <div className="metric-label">Anomaly Rate (Isolation Forest)</div>
+          <div className="metric-value"
+            style={{ color:(monitoring?.anomaly_rate > 0.15) ? 'var(--red)' : 'var(--green)' }}>
             {monitoring?.anomaly_rate !== undefined ? `${(monitoring.anomaly_rate * 100).toFixed(1)}%` : '0.0%'}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-            Threshold: {(monitoring?.anomaly_threshold * 100 || 15)}% • Retrains 24h: {monitoring?.retrain_count_24h || 0}
+          <div className="metric-sub">
+            Threshold: {(monitoring?.anomaly_threshold * 100 || 15)}% · Retrains 24 h: {monitoring?.retrain_count_24h || 0}
           </div>
         </div>
       </div>
 
-      {/* Traffic Simulation Controls */}
+      {/* ── Traffic simulation ─────────────────────────────────────────────── */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div className="card-header">
           <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-              🧪 Traffic Simulation
-            </h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              Log synthetic prediction requests to test drift detection and monitoring cycles.
-            </p>
+            <div className="section-title">Traffic Simulation</div>
+            <div className="section-sub">Log synthetic prediction requests to test drift detection and monitoring cycles.</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <div className="action-group">
           <button
-            className="btn btn-secondary"
-            style={{ borderColor: 'rgba(16,185,129,0.4)', color: '#34d399', gap: '0.5rem' }}
+            className="btn btn-success btn-sm"
             onClick={() => handleSimulateTraffic('normal')}
             disabled={simulatingNormal || simulatingDrift}
           >
-            {simulatingNormal ? '⏳ Simulating...' : '🟢 Simulate Normal Traffic (150 samples)'}
+            <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>
+            {simulatingNormal ? 'Simulating…' : 'Normal Traffic (150 samples)'}
           </button>
           <button
-            className="btn btn-secondary"
-            style={{ borderColor: 'rgba(239,68,68,0.4)', color: '#f87171', gap: '0.5rem' }}
+            className="btn btn-danger btn-sm"
             onClick={() => handleSimulateTraffic('drifted')}
             disabled={simulatingNormal || simulatingDrift}
           >
-            {simulatingDrift ? '⏳ Simulating...' : '🔴 Simulate Drifted Traffic (150 samples)'}
+            <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>
+            {simulatingDrift ? 'Simulating…' : 'Drifted Traffic (150 samples)'}
           </button>
         </div>
-        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
-          Drifted mode shifts <code>petal_length</code> to N(12.0, 1.5) — 3× off normal — to immediately trigger Evidently drift detection.
-        </div>
+        <p style={{ fontSize:'0.77rem', color:'var(--text-3)', marginTop:'0.75rem' }}>
+          Drifted mode shifts <code>petal_length</code> to N(12.0, 1.5) — 3× off-distribution — to immediately trigger Evidently drift detection.
+        </p>
       </div>
 
-      {/* Change Explainer Report */}
+      {/* ── Change explainer ───────────────────────────────────────────────── */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>🔍</span> Change Explainer & AST Diff Report
-          </h3>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Deterministic AST Parser + Metric Deltas</span>
+        <div className="card-header">
+          <div>
+            <div className="section-title">Change Explainer</div>
+            <div className="section-sub">Deterministic AST parser + metric deltas</div>
+          </div>
         </div>
-
-        <div style={{
-          background: 'rgba(15, 23, 42, 0.7)',
-          borderRadius: 'var(--radius-md)',
-          padding: '1rem 1.25rem',
-          borderLeft: '4px solid var(--accent-cyan)',
-          marginBottom: '1rem'
-        }}>
-          <p style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>
-            {reports?.change_explainer?.summary || 'Initial model version active.'}
-          </p>
+        <div className="report-summary">
+          {reports?.change_explainer?.summary || 'Initial model version active.'}
         </div>
-
         {reports?.change_explainer?.details && (
-          <ul style={{ paddingLeft: '1.25rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+          <ul className="report-details">
             {reports.change_explainer.details.map((item, idx) => (
-              <li key={idx} style={{ marginBottom: '0.4rem' }}>{item}</li>
+              <li key={idx}>{item}</li>
             ))}
           </ul>
         )}
       </div>
 
-      {/* Evidently Reports Tab Section */}
+      {/* ── Evidently reports (tabbed) ─────────────────────────────────────── */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="tab-bar">
+          <button
+            className={`tab-btn ${activeReportTab === 'summary' ? 'active' : ''}`}
+            onClick={() => setActiveReportTab('summary')}
+          >
+            Pipeline Summary
+          </button>
+          {reports?.version_comparison_html && (
             <button
-              className={`btn ${activeReportTab === 'summary' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveReportTab('summary')}
+              className={`tab-btn ${activeReportTab === 'comparison' ? 'active' : ''}`}
+              onClick={() => setActiveReportTab('comparison')}
             >
-              Pipeline Summary
+              Version Comparison
             </button>
-            {reports?.version_comparison_html && (
-              <button
-                className={`btn ${activeReportTab === 'comparison' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setActiveReportTab('comparison')}
-              >
-                Evidently Version Comparison
-              </button>
-            )}
-            {reports?.production_drift_html && (
-              <button
-                className={`btn ${activeReportTab === 'drift' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setActiveReportTab('drift')}
-              >
-                Production Drift Report
-              </button>
-            )}
-          </div>
+          )}
+          {reports?.production_drift_html && (
+            <button
+              className={`tab-btn ${activeReportTab === 'drift' ? 'active' : ''}`}
+              onClick={() => setActiveReportTab('drift')}
+            >
+              Production Drift
+            </button>
+          )}
         </div>
 
         {activeReportTab === 'summary' && (
           <div>
-            <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem' }}>Live Inference Sample Tester</h4>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            <p style={{ fontSize:'0.855rem', color:'var(--text-2)', marginBottom:'1rem' }}>
               Send a test vector through the deployed serving model to verify predictions and logging:
             </p>
-            <pre style={{ background: '#090d16', padding: '1rem', borderRadius: 'var(--radius-md)', fontSize: '0.82rem', overflowX: 'auto' }}>
+            <pre>
 {`curl -X POST ${deployment?.url || 'http://localhost:8001'}/predict \\
   -H "Content-Type: application/json" \\
   -d '{"features": {"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}}'`}
             </pre>
 
-            <div style={{ marginTop: '1.25rem' }}>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.6rem', color: 'var(--text-secondary)' }}>
-                Pipeline Metrics Summary
-              </h4>
-              <div className="grid-4">
-                {['accuracy', 'precision', 'recall', 'f1'].map(m => (
-                  metrics[m] !== undefined && (
-                    <div key={m} style={{ background: 'rgba(15,23,42,0.6)', borderRadius: 'var(--radius-md)', padding: '0.85rem', border: '1px solid var(--border-color)', textAlign: 'center' }}>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{m}</div>
-                      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--accent-cyan)', fontFamily: 'JetBrains Mono' }}>
-                        {(metrics[m] * 100).toFixed(1)}%
+            {Object.keys(metrics).some(k => ['accuracy','precision','recall','f1'].includes(k) && metrics[k] !== undefined) && (
+              <div style={{ marginTop:'1.25rem' }}>
+                <div style={{ fontSize:'0.8rem', color:'var(--text-2)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'0.75rem' }}>
+                  Metrics Summary
+                </div>
+                <div className="grid-4">
+                  {['accuracy','precision','recall','f1'].map(m =>
+                    metrics[m] !== undefined && (
+                      <div key={m} className="metric-tile">
+                        <div className="metric-tile-label">{m}</div>
+                        <div className="metric-tile-value">{(metrics[m] * 100).toFixed(1)}%</div>
                       </div>
-                    </div>
-                  )
-                ))}
+                    )
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {activeReportTab === 'comparison' && reports?.version_comparison_html && (
-          <div style={{ height: '550px' }}>
+          <div style={{ height:550 }}>
             <iframe
               src={`${API_BASE}/${reports.version_comparison_html}`}
               title="Evidently Version Comparison"
-              style={{ width: '100%', height: '100%', border: 'none', borderRadius: 'var(--radius-md)' }}
+              style={{ width:'100%', height:'100%', border:'none', borderRadius:'var(--r-md)' }}
             />
           </div>
         )}
 
         {activeReportTab === 'drift' && reports?.production_drift_html && (
-          <div style={{ height: '550px' }}>
+          <div style={{ height:550 }}>
             <iframe
               src={`${API_BASE}/${reports.production_drift_html}`}
               title="Evidently Production Drift"
-              style={{ width: '100%', height: '100%', border: 'none', borderRadius: 'var(--radius-md)' }}
+              style={{ width:'100%', height:'100%', border:'none', borderRadius:'var(--r-md)' }}
             />
           </div>
         )}
       </div>
+
+      <ToastStack toasts={toasts} dismiss={dismiss} />
     </div>
   );
 }
